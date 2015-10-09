@@ -60,7 +60,8 @@ public class MainActivity extends Activity {
 		protected void onPostExecute(List<NewsBean> newsBeans) {
 
 			super.onPostExecute(newsBeans);
-			NewsAdapter adapter = new NewsAdapter(MainActivity.this, newsBeans);
+			NewsAdapter adapter = new NewsAdapter(MainActivity.this, newsBeans,
+					mListview);
 			mListview.setAdapter(adapter);
 		}
 

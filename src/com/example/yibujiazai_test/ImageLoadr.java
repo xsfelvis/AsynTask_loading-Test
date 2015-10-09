@@ -6,6 +6,10 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.HashSet;
+import java.util.Set;
+
+import com.example.yibujiazai_test.MainActivity.NewsAsynTask;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -14,6 +18,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.v4.util.LruCache;
 import android.widget.ImageView;
+import android.widget.ListView;
 
 /*
  * 图片加载
@@ -26,8 +31,13 @@ public class ImageLoadr {
 	private String mUrl;
 	// 使用LRU算法
 	private LruCache<String, Bitmap> mCaches;
+	// 创建成员变量
+	private ListView mListView;
+	private Set<ImageLoaderAsynTask> mTask;
 
-	public ImageLoadr() {
+	public ImageLoadr(ListView listview) {
+		mListView = listview;
+		mTask = new HashSet<ImageLoadr.ImageLoaderAsynTask>();
 		// 获取最大可使用内存
 		int MaxMemory = (int) Runtime.getRuntime().maxMemory();
 		// 设置所需缓存大小
@@ -119,7 +129,9 @@ public class ImageLoadr {
 		Bitmap bitmap = getBitmapFromCache(url);
 		if (bitmap == null) {
 			// 缓存中没有该图片则直接加载
-			new ImageLoaderAsynTask(imageView, url).execute(url);
+			// new ImageLoaderAsynTask(url).execute(url);
+			// 没有图片设置默认图标
+			imageView.setImageResource(R.drawable.ic_launcher);
 		} else {
 			// 缓存中有该图片直接加载
 			imageView.setImageBitmap(bitmap);
@@ -127,13 +139,41 @@ public class ImageLoadr {
 
 	}
 
+	// 用来加载从start到end的所有图片
+	public void loadImages(int start, int end) {
+		for (int i = start; i < end; i++) {
+			String url = NewsAdapter.URLS[i];// 获取到了从start开始到end所有rul
+			Bitmap bitmap = getBitmapFromCache(url);
+			if (bitmap == null) {
+				// 缓存中没有该图片则直接加载
+				// new ImageLoaderAsynTask(, url).execute(url);
+				ImageLoaderAsynTask task = new ImageLoaderAsynTask(url);
+				task.execute(url);
+				mTask.add(task);// 将该task保存到当前活动task集合中
+
+			} else {
+				/*
+				 * // 缓存中有该图片直接加载 // imageView.setImageBitmap(bitmap);
+				 */
+				// 通过tag找到imageView
+				ImageView imageView = (ImageView) mListView
+						.findViewWithTag(url);
+				imageView.setImageBitmap(bitmap);
+			}
+		}
+	}
+
 	private class ImageLoaderAsynTask extends AsyncTask<String, Void, Bitmap> {
-		private ImageView mImageView;
+		// private ImageView
+		// mImageView;不再需要，可以通过listview的findViewWithTag(url)找到imageView
 		// 防止listview图片加载错位做的处理
 		private String mUrl;
 
-		public ImageLoaderAsynTask(ImageView imageView, String url) {
-			mImageView = imageView;
+		/*
+		 * public ImageLoaderAsynTask(ImageView imageView, String url) {
+		 * mImageView = imageView; mUrl = url; }
+		 */
+		public ImageLoaderAsynTask(String url) {
 			mUrl = url;
 		}
 
@@ -153,8 +193,24 @@ public class ImageLoadr {
 
 			super.onPostExecute(bitmap);
 			// 设置图片时增加判断防止listview加载图片错位
-			if (mImageView.getTag().equals(mUrl)) {
-				mImageView.setImageBitmap(bitmap);
+			/*
+			 * if (mImageView.getTag().equals(mUrl)) {
+			 * mImageView.setImageBitmap(bitmap); }
+			 */
+			ImageView imageView = (ImageView) mListView.findViewWithTag(mUrl);
+			if (imageView != null && bitmap != null) {
+				imageView.setImageBitmap(bitmap);
+			}
+			// 设置完bitmap之后表明该task已经失去作用,需要从集合中移除
+			mTask.remove(this);
+		}
+
+	}
+
+	public void cancelAllTask() {
+		if (mTask != null) {
+			for (ImageLoaderAsynTask task : mTask) {
+				task.cancel(false);
 			}
 		}
 
